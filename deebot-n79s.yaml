@@ -1,0 +1,264 @@
+# Deebot N79S: ESPHome replacement for the stock Ecovacs (Wukong) firmware on
+# the robot's ESP8266-WROOM-02 Wi-Fi board.  See README.md.
+
+substitutions:
+  name: deebot-n79s
+  friendly_name: Deebot N79S
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp8266:
+  # ESP8266-WROOM-02 with 4MB (32Mbit) flash.  ESPHome's esp_wroom_02 board
+  # assumes 2MB, esp12e is the same ESP8266EX with a 4MB layout.
+  board: esp12e
+
+external_components:
+  - source: github://augs/deebot-n79s-esphome@main
+    components: [deebot_n79s]
+  # Or, from a local checkout of this repo:
+  # - source:
+  #     type: local
+  #     path: components
+
+logger:
+  # UART0 is wired to the mainboard, so log on UART1 (GPIO2 TX) instead.
+  hardware_uart: UART1
+
+api:
+  encryption:
+    key: !secret api_key
+  # Keep running (and cleaning) if Home Assistant goes away.
+  reboot_timeout: 0s
+  # Home Assistant actions: esphome.deebot_n79s_<name>.  days is 7 x 0/1,
+  # Sunday first, e.g. 0111110 for weekdays.  Schedules run an auto clean.
+  actions:
+    - action: add_schedule
+      variables:
+        name: string
+        hour: int
+        minute: int
+        days: string
+        enabled: bool
+      then:
+        - lambda: id(deebot).add_schedule(name, hour, minute, days, enabled);
+    - action: modify_schedule
+      variables:
+        name: string
+        hour: int
+        minute: int
+        days: string
+        enabled: bool
+      then:
+        - lambda: id(deebot).modify_schedule(name, hour, minute, days, enabled);
+    - action: delete_schedule
+      variables:
+        name: string
+      then:
+        - lambda: id(deebot).delete_schedule(name);
+    - action: refresh_schedules
+      then:
+        - lambda: id(deebot).request_schedules();
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  min_auth_mode: WPA2
+  networks:
+    - ssid: !secret wifi_ssid
+      password: !secret wifi_password
+  # Fallback AP, the way back in when Wi-Fi is down.
+  ap:
+    ssid: ${name}-fallback
+    password: !secret wifi_fallback_password
+
+captive_portal:
+
+# Time (and timezone) come from Home Assistant over the API.  Each sync also
+# sets the vacuum clock, which schedules run on.
+time:
+  - platform: homeassistant
+    id: ha_time
+    on_time_sync:
+      - lambda: id(deebot).set_time();
+
+uart:
+  id: mainboard_uart
+  tx_pin: GPIO1
+  rx_pin: GPIO3
+  # The mainboard MCU's USART1 is 115200 8N1 (see PROTOCOL.md section 1).
+  baud_rate: 115200
+  data_bits: 8
+  parity: NONE
+  stop_bits: 1
+  rx_buffer_size: 2048
+
+deebot_n79s:
+  id: deebot
+  uart_id: mainboard_uart
+  time_id: ha_time
+  update_interval: 300s
+  battery_level:
+    name: Battery
+  brush:
+    name: Main brush life
+  side_brush:
+    name: Side brush life
+  dust_case:
+    name: Filter life
+  status:
+    name: Status
+  error:
+    name: Error
+  charge_state:
+    name: Charge state
+  firmware_version:
+    name: Firmware
+  schedules:
+    name: Schedules
+  fan_speed:
+    id: fan_speed
+    internal: true
+  clean_mode:
+    id: clean_mode
+    internal: true
+
+button:
+  # Cleaning.  The MCU has no resume: Clean also continues a paused clean.
+  - platform: template
+    name: Clean
+    icon: mdi:play
+    on_press:
+      - lambda: id(deebot).start();
+  - platform: template
+    name: Pause
+    icon: mdi:pause
+    on_press:
+      - lambda: id(deebot).pause();
+  - platform: template
+    name: Spot clean
+    icon: mdi:target
+    on_press:
+      - lambda: id(deebot).spot_clean();
+  - platform: template
+    name: Stop
+    icon: mdi:stop
+    on_press:
+      - lambda: id(deebot).stop();
+  - platform: template
+    name: Return to dock
+    icon: mdi:home-import-outline
+    on_press:
+      - lambda: id(deebot).charge();
+  - platform: template
+    name: Cancel return
+    icon: mdi:home-remove-outline
+    on_press:
+      - lambda: id(deebot).cancel_charge();
+  - platform: template
+    name: Locate
+    icon: mdi:map-marker-question
+    on_press:
+      - lambda: id(deebot).locate();
+
+  # Manual drive (fire and forget, no reply).  The MCU has no backward.
+  - platform: template
+    name: Move forward
+    icon: mdi:arrow-up-bold
+    on_press:
+      - lambda: id(deebot).move("forward");
+  - platform: template
+    name: Spin left
+    icon: mdi:rotate-left
+    on_press:
+      - lambda: id(deebot).move("SpinLeft");
+  - platform: template
+    name: Spin right
+    icon: mdi:rotate-right
+    on_press:
+      - lambda: id(deebot).move("SpinRight");
+  - platform: template
+    name: Turn around
+    icon: mdi:rotate-3d-variant
+    on_press:
+      - lambda: id(deebot).move("TurnAround");
+  - platform: template
+    name: Move stop
+    icon: mdi:stop-circle-outline
+    on_press:
+      - lambda: id(deebot).move("stop");
+
+  # Consumables: reset after replacing the part.
+  - platform: template
+    name: Reset main brush
+    icon: mdi:brush
+    entity_category: config
+    on_press:
+      - lambda: id(deebot).reset_lifespan("Brush");
+  - platform: template
+    name: Reset side brush
+    icon: mdi:broom
+    entity_category: config
+    on_press:
+      - lambda: id(deebot).reset_lifespan("SideBrush");
+  - platform: template
+    name: Reset filter
+    icon: mdi:air-filter
+    entity_category: config
+    on_press:
+      - lambda: id(deebot).reset_lifespan("DustCaseHeap");
+
+  - platform: template
+    name: Sync time
+    icon: mdi:clock-check-outline
+    entity_category: config
+    on_press:
+      - lambda: id(deebot).set_time();
+  - platform: template
+    name: Refresh
+    icon: mdi:refresh
+    entity_category: diagnostic
+    on_press:
+      - lambda: |-
+          id(deebot).request_status();
+          id(deebot).request_supplies();
+          id(deebot).request_version();
+          id(deebot).request_schedules();
+
+select:
+  # Both selects mirror what the mainboard reports; set_action only runs when
+  # the option is changed from Home Assistant.
+  - platform: template
+    name: Suction speed
+    id: suction_speed
+    icon: mdi:fan
+    options:
+      - standard
+      - strong
+    update_interval: 5s
+    lambda: |-
+      if (id(fan_speed).has_state())
+        return id(fan_speed).state;
+      return {};
+    set_action:
+      - lambda: id(deebot).set_fan_speed(x);
+  # Mode used by the Clean button and the HA vacuum start.
+  - platform: template
+    name: Clean mode
+    id: clean_mode_select
+    icon: mdi:map-marker-path
+    options:
+      - auto
+      - border
+      - spot
+      - singleRoom
+    update_interval: 5s
+    lambda: |-
+      if (id(clean_mode).has_state())
+        return id(clean_mode).state;
+      return {};
+    set_action:
+      - lambda: id(deebot).set_clean_mode(x);

@@ -1,0 +1,71 @@
+# Home Assistant package for the Deebot N79S ESPHome device.
+#
+# Put this file in your packages directory (configuration.yaml:
+#   homeassistant:
+#     packages: !include_dir_named packages
+# ), add the ESPHome device to Home Assistant first, then reload template
+# entities (Developer tools > YAML) or restart.
+#
+# Entity ids assume the ESPHome friendly_name "Deebot N79S"; check
+# them under Settings > Devices > Deebot N79S if you renamed anything.
+#
+# Home Assistant vacuum entities no longer carry a battery level, so battery
+# stays its own sensor (sensor.deebot_n79s_battery); it is copied into an
+# attribute here for cards that want it.
+#
+# Schedules are ESPHome actions, e.g.:
+#   action: esphome.deebot_n79s_add_schedule
+#   data: {name: weekdays, hour: 9, minute: 30, days: "0111110", enabled: true}
+
+template:
+  - vacuum:
+      - name: Deebot N79S
+        unique_id: deebot_n79s_vacuum
+        availability: "{{ has_value('sensor.deebot_n79s_status') }}"
+        # The component reports cleaning/paused/returning/docked/idle/error
+        # (paused is tracked by the component; the robot can't report it).
+        state: >-
+          {% set map = {'cleaning': 'cleaning', 'paused': 'paused',
+                        'returning': 'returning', 'docked': 'docked',
+                        'error': 'error', 'idle': 'idle'} %}
+          {{ map.get(states('sensor.deebot_n79s_status'), 'idle') }}
+        fan_speed: "{{ states('select.deebot_n79s_suction_speed') }}"
+        fan_speeds:
+          - standard
+          - strong
+        attributes:
+          battery_level: "{{ states('sensor.deebot_n79s_battery') | int(0) }}"
+          error: "{{ states('sensor.deebot_n79s_error') }}"
+          clean_mode: "{{ states('select.deebot_n79s_clean_mode') }}"
+        # The Clean button starts the selected clean mode; the robot has no
+        # resume command, so starting again is also how a pause is resumed.
+        start:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_clean
+        pause:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_pause
+        stop:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_stop
+        return_to_base:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_return_to_dock
+        clean_spot:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_spot_clean
+        locate:
+          - action: button.press
+            target:
+              entity_id: button.deebot_n79s_locate
+        set_fan_speed:
+          - action: select.select_option
+            target:
+              entity_id: select.deebot_n79s_suction_speed
+            data:
+              option: "{{ fan_speed }}"
