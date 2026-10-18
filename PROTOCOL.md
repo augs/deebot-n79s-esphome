@@ -94,7 +94,9 @@ bytes:
   makes it **drop the frame** (the function returns -1). The CRC is computed
   over the *un-escaped* bytes.
 - **MCU transmit** (`0x080132ac`): it only escapes the check byte, because
-  its XML never contains these three characters.
+  its XML never contains these three characters. **[verified]** on
+  hardware: a `SetTime` reply whose CRC is `0x0A` arrived as `... 00 5C 03 0A`
+  and validated after un-escaping.
 - **What a client must do:**
   - Escape at least the check byte on everything you send. Escaping every
     byte after the header is equally valid.

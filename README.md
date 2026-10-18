@@ -160,13 +160,15 @@ Tested on a real robot:
 - battery, consumables, firmware version and the schedule list;
 - Locate (`PlaySound`);
 - return to dock, with status going returning → docked and `SlotCharging`
-  arriving.
+  arriving;
+- `SetTime` from Home Assistant time, with the timezone offset;
+- an escaped check byte from the MCU (`5C 03`), decoded and validated.
 
 Taken from the app and the MCU firmware but not yet run on hardware:
 
 - pause (`act='p'`), cancel return (`stopGo`);
 - adding, changing and deleting schedules;
-- an escaped check byte on the wire.
+- an escaped check byte sent *to* the MCU.
 
 Reports and fixes are welcome.
 
