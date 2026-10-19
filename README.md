@@ -145,8 +145,9 @@ are always `auto` at the current suction speed, as in the app.
 - **Boot.** At boot the component sends `DCStatus conn='2'`. Without it, the
   MCU's status reports are unreliable. Status, consumables, version and
   schedules follow, and are re-polled every 5 minutes.
-- **Wi-Fi state.** The mainboard polls `GetWIFIStat`; the component answers
-  `<ctl td='WIFIStat' st='o' id='...'/>` while Wi-Fi is connected, or
+- **Wi-Fi state.** The mainboard polls `GetWIFIStat` for its Wi-Fi light;
+  the component answers `<ctl td='WIFIStat' st='o' id='...'/>` while Wi-Fi
+  is connected, or
   `st='c'` when it isn't. It also sends an unsolicited `WIFIStat` at boot
   and whenever Wi-Fi connects or drops. Unlike the stock firmware, it leaves
   out the SSID and password (`s=`/`p=`).

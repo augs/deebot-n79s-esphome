@@ -488,7 +488,7 @@ void DeebotN79S::parse_message_(const std::string &msg) {
 void DeebotN79S::handle_report_(const std::string &td, const std::vector<Element> &els) {
   const Element &root = els[0];
   if (td == "GetWIFIStat") {
-    // The mainboard polling our Wi-Fi state, probably for its Wi-Fi light.
+    // The mainboard polling our Wi-Fi state, which drives its Wi-Fi light.
     std::string id;
     root.get("id", &id);
     this->send_wifi_stat_(id);
