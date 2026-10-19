@@ -72,6 +72,13 @@ VECTORS = [
     b"`FA\x00\x00<ctl id='50888424' ret='ok'/>\x00\xc5\n",
 ]
 
+# Frames the ESPHome component builds (computed, not captured): its answer
+# to the MCU's GetWIFIStat, and the unsolicited one sent at boot.
+OWN = [
+    (b"<ctl td='WIFIStat' st='o' id='radomnum'/>", b"`FC<ctl td='WIFIStat' st='o' id='radomnum'/>\x00\x9c\n"),
+    (b"<ctl td='WIFIStat' st='o'/>", b"`FC<ctl td='WIFIStat' st='o'/>\x00\xb9\n"),
+]
+
 
 def _selftest():
     assert crc8(b"123456789") == 0xF4
@@ -79,9 +86,11 @@ def _selftest():
         assert check_frame(v), v
     assert frame(b"<ctl id='863'/>") == b"`FA<ctl id='863'/>\x00\\\x03\n"
     assert frame(b"<ctl id='50888424' td='PlaySound' sid='0'/>") == VECTORS[8]
+    for payload, f in OWN:
+        assert frame(payload, b"C") == f and check_frame(f), f
     assert unescape(b"a\\\nb") is None
     assert not check_frame(b"`FA<ctl/>\x00\\\n")
-    print("ok: %d vectors" % len(VECTORS))
+    print("ok: %d vectors" % (len(VECTORS) + len(OWN)))
 
 
 if __name__ == "__main__":

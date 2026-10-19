@@ -7,6 +7,9 @@
 #include "esphome/core/hal.h"
 #include "esphome/core/helpers.h"
 #include "esphome/core/log.h"
+#ifdef USE_WIFI
+#include "esphome/components/wifi/wifi_component.h"
+#endif
 
 namespace esphome {
 namespace deebot_n79s {
@@ -326,6 +329,14 @@ static void publish(sensor::Sensor *sens, const std::string &value) {
     sens->publish_state(atoi(value.c_str()));
 }
 
+static bool wifi_online() {
+#ifdef USE_WIFI
+  return wifi::global_wifi_component != nullptr && wifi::global_wifi_component->is_connected();
+#else
+  return true;
+#endif
+}
+
 void DeebotN79S::setup() {
   this->next_id_ = 10000000 + random_uint32() % 80000000;
   this->publish_status_();
@@ -335,6 +346,7 @@ void DeebotN79S::setup() {
     // This only needs to be sent once to make the mainboard state machine
     // return the correct results for charge and clean status.
     this->send_payload("<ctl td='DCStatus'><DC name='xmpp' on='1' conn='2'/>", 'C');
+    this->send_wifi_stat_();
     this->xmpp_announced_ = true;
     this->request_status();
     this->request_supplies();
@@ -355,6 +367,10 @@ void DeebotN79S::loop() {
     this->tx_queue_.pop_front();
     this->last_tx_ms_ = millis();
   }
+
+  // Tell the MCU as soon as Wi-Fi comes up or drops, not just when it polls.
+  if (this->xmpp_announced_ && wifi_online() != this->wifi_reported_)
+    this->send_wifi_stat_();
 }
 
 void DeebotN79S::update() {
@@ -472,7 +488,10 @@ void DeebotN79S::parse_message_(const std::string &msg) {
 void DeebotN79S::handle_report_(const std::string &td, const std::vector<Element> &els) {
   const Element &root = els[0];
   if (td == "GetWIFIStat") {
-    // The mainboard asking us; ignoring it doesn't impact its state machine.
+    // The mainboard polling our Wi-Fi state, probably for its Wi-Fi light.
+    std::string id;
+    root.get("id", &id);
+    this->send_wifi_stat_(id);
     return;
   }
   if (td == "SetWIFICfg") {
@@ -794,6 +813,17 @@ void DeebotN79S::send_payload(const std::string &payload, char channel) {
     return;
   }
   this->tx_queue_.push_back(frame(payload, channel));
+}
+
+void DeebotN79S::send_wifi_stat_(const std::string &id) {
+  // st='o' online, 'c' connecting.  The stock firmware also sends the SSID
+  // and PSK in s='' / p=''; the MCU doesn't need them.
+  const bool online = wifi_online();
+  this->wifi_reported_ = online;
+  std::string payload = std::string("<ctl td='WIFIStat' st='") + (online ? "o" : "c") + "'";
+  if (!id.empty())
+    payload += " id='" + id + "'";
+  this->send_payload(payload + "/>", 'C');
 }
 
 void DeebotN79S::send_ctl_(const char *td, const std::string &attrs, const std::string &children, Request kind,

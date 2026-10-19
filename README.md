@@ -145,8 +145,13 @@ are always `auto` at the current suction speed, as in the app.
 - **Boot.** At boot the component sends `DCStatus conn='2'`. Without it, the
   MCU's status reports are unreliable. Status, consumables, version and
   schedules follow, and are re-polled every 5 minutes.
-- **Ignored messages.** `GetWIFIStat` and `SetWIFICfg` from the mainboard
-  are ignored. `FactoryRest` is acknowledged.
+- **Wi-Fi state.** The mainboard polls `GetWIFIStat`; the component answers
+  `<ctl td='WIFIStat' st='o' id='...'/>` while Wi-Fi is connected, or
+  `st='c'` when it isn't. It also sends an unsolicited `WIFIStat` at boot
+  and whenever Wi-Fi connects or drops. Unlike the stock firmware, it leaves
+  out the SSID and password (`s=`/`p=`).
+- **Ignored messages.** `SetWIFICfg` from the mainboard is ignored.
+  `FactoryRest` is acknowledged.
 - **`GetLogs` is never sent:** a second call makes the mainboard reset the
   ESP8266.
 - **Log redaction.** The RX log blanks out cloud JIDs and any SSID or

@@ -93,6 +93,7 @@ bytes:
   checking the CRC. A `\` followed by anything other than `01`/`02`/`03`
   makes it **drop the frame** (the function returns -1). The CRC is computed
   over the *un-escaped* bytes.
+- **Stock ESP firmware** (Wukong): it escapes every byte after the header when sending. When receiving, it checks the CRC only if the byte before it is `0x00`, and accepts frames without the null unchecked. So only the MCU enforces the CRC **[verified]** by disassembly.
 - **MCU transmit** (`0x080132ac`): it only escapes the check byte, because
   its XML never contains these three characters. **[verified]** on
   hardware: a `SetTime` reply whose CRC is `0x0A` arrived as `... 00 5C 03 0A`
@@ -258,6 +259,7 @@ b"`FA<ctl id='863'/>\x00\\\x03\n"                                        # CRC 0
 | Message | Meaning |
 |---|---|
 | `<ctl id='radomnum' td='GetWIFIStat'/>` | Periodic poll for Wi-Fi state. The stock ESP answers `<ctl td='WIFIStat' st='o' s='<ssid>' p='<psk>' id='radomnum'/>`, which puts the Wi-Fi password on the UART in clear text. Ignoring it has no visible effect **[verified]** |
+| `<ctl td='WIFIStat' st=…/>` (from the ESP, as a reply or unsolicited) | **[mcu]** (`0x08015570`) The MCU `strstr`s the frame for `'i'`, `'s'`, `'c'`, `'o'` and keeps a Wi-Fi state from it: `'i'` and `'s'` reset it, `'c'` means connecting, `'o'` means online. It probably drives the Wi-Fi indicator **[inferred]**. Values it doesn't know (such as `st='a'`) are ignored. A replacement that wants the MCU to see "online" should answer `GetWIFIStat` with `<ctl td='WIFIStat' st='o' id='radomnum'/>` |
 | `<ctl td='FactoryRest' id='req_resp_id'/>` | The user requested a factory reset on the robot. The stock ESP replies `<ctl id='req_resp_id' ret='ok'/>` **[verified]** and presumably clears its Wi-Fi and cloud config **[inferred]** |
 | `<ctl id='REECOO87' td='SetWIFICfg'><cfg s='<ssid>' p='<psk>'/></ctl>` | **[mcu]** It tells the ESP which network to join. It sits next to the string `WIFITEST000` and the factory-test output `@424=Wifi Test=`, so it's most likely the factory Wi-Fi test **[inferred]**. A client can ignore it |
 | `<ctl td='DeviceCap' ...>` | The reply to `GetDeviceCap` (§8) |

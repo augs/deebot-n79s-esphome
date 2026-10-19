@@ -137,6 +137,8 @@ class DeebotN79S : public PollingComponent, public uart::UARTDevice {
   void send_ctl_(const char *td, const std::string &attrs = "", const std::string &children = "",
                  Request kind = Request::OTHER, const std::string &arg = "");
   void send_clean_(const std::string &type, const char *act);
+  // Tell the MCU our Wi-Fi state (WIFIStat), echoing ID if it asked.
+  void send_wifi_stat_(const std::string &id = "");
   bool sched_xml_(const std::string &name, int hour, int minute, const std::string &days, bool enabled,
                   std::string *out);
   void handle_byte_(uint8_t c);
@@ -169,6 +171,8 @@ class DeebotN79S : public PollingComponent, public uart::UARTDevice {
   uint32_t next_id_{0};
   std::deque<Pending> pending_;
   bool xmpp_announced_{false};
+  // Wi-Fi state last sent to the MCU in WIFIStat.
+  bool wifi_reported_{false};
 
   // Robot state, combined into the status text sensor by publish_status_().
   char clean_st_{'h'};  // s cleaning, h halted.
